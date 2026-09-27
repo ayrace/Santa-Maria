@@ -403,8 +403,11 @@ with info_col:
         route = f"https://www.google.com/maps/dir/?api=1&destination={float(r['Latitude']):.7f},{float(r['Longitude']):.7f}&travelmode=driving"
         anchor_note = f" • posição KML: {esc(r['Map_Node'])}" if r.get("Map_Node") and r.get("Map_Node") != r.get("Node") else ""
         critical_note = f" • {int(r['Portas_Criticas'])} porta(s) crítica(s) 1–{CRITICAL_MAX_SCORE}" if int(r.get("Portas_Criticas", 0)) else ""
+        bairro_txt = esc(r.get('Bairro', '')) if str(r.get('Bairro', '')).strip() else '—'
+        regiao_txt = esc(r.get('Regiao', '')) if str(r.get('Regiao', '')).strip() else '—'
         st.markdown(
             f"<div class='focus'><b>📍 {esc(r['Node'])}</b> — {esc(r['Status'])}{anchor_note}{critical_note}<br>"
+            f"<span class='small'><b>Região/Bairro:</b> {regiao_txt} / {bairro_txt}</span><br>"
             f"<span class='small'>{esc(r['Portas_popup'])}</span><br>"
             f"<a class='route' href='{route}' target='_blank'>🧭 Traçar rota no Google Maps</a></div>",
             unsafe_allow_html=True,
@@ -453,6 +456,8 @@ else:
                 "<div><b>Status:</b> {Status}</div>"
                 "<div><b>Portas OFF:</b> {Portas_OFF}/{Total_portas}</div>"
                 "<div><b>Portas críticas:</b> {Portas_Criticas}</div>"
+                "<div><b>Região:</b> {Regiao}</div>"
+                "<div><b>Bairro:</b> {Bairro}</div>"
                 "<div style='border-top:1px solid rgba(255,255,255,.2);margin:7px 0 5px'></div>"
                 "<div>{Portas_popup}</div>"
                 "<div style='border-top:1px solid rgba(255,255,255,.2);margin:7px 0 5px'></div>"
@@ -477,7 +482,7 @@ with left:
     else:
         crit["_sev"] = crit["Status"].map(status_order)
         crit = crit.sort_values(["_sev", "Portas_OFF", "Node"], ascending=[False, False, True])
-        st.dataframe(crit[["Node", "Status", "Portas_OFF", "Total_portas", "Portas_popup"]], use_container_width=True, hide_index=True)
+        st.dataframe(logical.merge(crit[['Node','Status','Portas_OFF','Total_portas','Portas_popup']], on='Node', how='right')[['Node','Bairro','Status','Portas_OFF','Total_portas','Portas_popup']], use_container_width=True, hide_index=True)
 
 with right:
     st.markdown("### 🟡 Portas críticas 1–20")
@@ -486,7 +491,7 @@ with right:
         st.info("Nenhuma porta crítica nesta coleta.")
     else:
         q = q.sort_values(["Portas_Criticas", "Node"], ascending=[False, True])
-        st.dataframe(q[["Node", "Portas_Criticas", "Portas_popup"]], use_container_width=True, hide_index=True)
+        st.dataframe(logical.merge(q[['Node','Portas_Criticas','Portas_popup']], on='Node', how='right')[['Node','Bairro','Portas_Criticas','Portas_popup']], use_container_width=True, hide_index=True)
 
 pending = logical[logical["Latitude"].isna()].copy()
 if not pending.empty:
