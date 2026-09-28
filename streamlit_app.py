@@ -42,6 +42,48 @@ CRITICAL_MAX_SCORE = 20
 LIGHT_MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
 
 
+# Localizações validadas manualmente — prevalecem sobre a base CSV.
+# Mantidas no código para evitar que uma base antiga do GitHub volte a marcar estes nodes como pendentes.
+VALIDATED_LOCATION_OVERRIDES = {
+    "JOBIM": {
+        "Map_Node": "JOBIM",
+        "Latitude": -29.686700,
+        "Longitude": -53.811900,
+        "DisplayLatitude": -29.686700,
+        "DisplayLongitude": -53.811900,
+        "Bairro": "CENTRO",
+        "Regiao": "CENTRAL",
+        "Endereco": "R. Venâncio Aires, 1434 - Centro, Santa Maria/RS",
+        "Precisao": "ENDERECO_VALIDADO",
+        "Observacao": "Localização validada por endereço informado.",
+    },
+    "CNTBN": {
+        "Map_Node": "CNTBN",
+        "Latitude": -29.686470,
+        "Longitude": -53.823400,
+        "DisplayLatitude": -29.686470,
+        "DisplayLongitude": -53.823400,
+        "Bairro": "PASSO D AREIA",
+        "Regiao": "NORTE",
+        "Endereco": "R. Maria Quitéria, 678 - Passo D'Areia, Santa Maria/RS",
+        "Precisao": "ENDERECO_VALIDADO",
+        "Observacao": "Localização validada por endereço informado.",
+    },
+    "CMBAO-CNTAV": {
+        "Map_Node": "CMBAO-CNTAV",
+        "Latitude": -29.703358,
+        "Longitude": -53.815254,
+        "DisplayLatitude": -29.703358,
+        "DisplayLongitude": -53.815254,
+        "Bairro": "URLANDIA",
+        "Regiao": "SUL",
+        "Endereco": "Rod. BR-287, 2885 - Urlândia, Santa Maria/RS",
+        "Precisao": "ENDERECO_VALIDADO",
+        "Observacao": "Localização validada por endereço informado.",
+    },
+}
+
+
 def now_local():
     return datetime.now(LOCAL_TZ)
 
@@ -82,6 +124,15 @@ def load_base() -> pd.DataFrame:
         d[c] = pd.to_numeric(d[c], errors="coerce")
     d["Node"] = d["Node"].map(norm_txt)
     d["Map_Node"] = d["Map_Node"].map(norm_txt)
+
+    # Aplica correções validadas, mesmo que o CSV do repositório esteja desatualizado.
+    for node, values in VALIDATED_LOCATION_OVERRIDES.items():
+        mask = d["Node"].eq(node)
+        if mask.any():
+            for col, value in values.items():
+                if col not in d.columns:
+                    d[col] = pd.NA
+                d.loc[mask, col] = value
     return d
 
 
