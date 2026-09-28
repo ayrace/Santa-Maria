@@ -397,6 +397,22 @@ with search_col:
 mapdf = logical[logical["Latitude_Map"].notna() & logical["Longitude_Map"].notna()].copy()
 focus = mapdf[mapdf["Node"] == chosen].copy() if chosen else pd.DataFrame()
 
+impact_base = logical[logical['Portas_OFF'] > 0].copy() if not logical.empty else pd.DataFrame()
+if not impact_base.empty:
+    region_impact = (impact_base[impact_base['Regiao'].fillna('').astype(str).str.strip() != '']
+        .groupby('Regiao', dropna=False)
+        .agg(Nodes_impactados=('Node', 'count'), Portas_OFF=('Portas_OFF', 'sum'))
+        .reset_index()
+        .sort_values(['Portas_OFF', 'Nodes_impactados', 'Regiao'], ascending=[False, False, True]))
+    bairro_impact = (impact_base[impact_base['Bairro'].fillna('').astype(str).str.strip() != '']
+        .groupby('Bairro', dropna=False)
+        .agg(Nodes_impactados=('Node', 'count'), Portas_OFF=('Portas_OFF', 'sum'))
+        .reset_index()
+        .sort_values(['Portas_OFF', 'Nodes_impactados', 'Bairro'], ascending=[False, False, True]))
+else:
+    region_impact = pd.DataFrame(columns=['Regiao', 'Nodes_impactados', 'Portas_OFF'])
+    bairro_impact = pd.DataFrame(columns=['Bairro', 'Nodes_impactados', 'Portas_OFF'])
+
 with info_col:
     if not focus.empty:
         r = focus.iloc[0]
@@ -412,6 +428,43 @@ with info_col:
             f"<a class='route' href='{route}' target='_blank'>🧭 Traçar rota no Google Maps</a></div>",
             unsafe_allow_html=True,
         )
+
+summary_1, summary_2, summary_3 = st.columns(3)
+
+with summary_1:
+    st.markdown("### ⚠️ Nodes com sem sinal")
+    crit = status_df[status_df["Portas_OFF"] > 0].copy() if not status_df.empty else pd.DataFrame()
+    if crit.empty:
+        st.success("Nenhum node com porta OFF na leitura atual.")
+    else:
+        crit["_sev"] = crit["Status"].map(status_order)
+        crit = crit.sort_values(["_sev", "Portas_OFF", "Node"], ascending=[False, False, True])
+        crit_view = logical.merge(crit[["Node", "Status", "Portas_OFF", "Total_portas", "Portas_popup"]], on="Node", how="right")
+        st.dataframe(crit_view[["Node", "Regiao", "Bairro", "Status", "Portas_OFF"]], use_container_width=True, hide_index=True)
+
+with summary_2:
+    st.markdown("### 📊 Regiões mais impactadas")
+    if region_impact.empty:
+        st.info("Nenhuma região impactada na leitura atual.")
+    else:
+        st.dataframe(region_impact[["Regiao", "Nodes_impactados", "Portas_OFF"]], use_container_width=True, hide_index=True)
+
+with summary_3:
+    st.markdown("### 🏘️ Bairros mais impactados")
+    if bairro_impact.empty:
+        st.info("Nenhum bairro impactado na leitura atual.")
+    else:
+        st.dataframe(bairro_impact.head(10)[["Bairro", "Nodes_impactados", "Portas_OFF"]], use_container_width=True, hide_index=True)
+
+with st.expander("🟡 Portas críticas 1–20", expanded=False):
+    q = status_df[status_df["Portas_Criticas"] > 0].copy() if not status_df.empty else pd.DataFrame()
+    if q.empty:
+        st.info("Nenhuma porta crítica nesta coleta.")
+    else:
+        q = q.sort_values(["Portas_Criticas", "Node"], ascending=[False, True])
+        q_view = logical.merge(q[["Node", "Portas_Criticas", "Portas_popup"]], on="Node", how="right")
+        st.dataframe(q_view[["Node", "Regiao", "Bairro", "Portas_Criticas", "Portas_popup"]], use_container_width=True, hide_index=True)
+
 
 if mapdf.empty:
     st.warning("Nenhum node com coordenada disponível para o mapa.")
@@ -472,26 +525,6 @@ else:
         map_style=LIGHT_MAP_STYLE,
     )
     st.pydeck_chart(deck, use_container_width=True, height=600)
-
-left, right = st.columns(2)
-with left:
-    st.markdown("### ⚠️ Nodes com sem sinal")
-    crit = status_df[status_df["Portas_OFF"] > 0].copy() if not status_df.empty else pd.DataFrame()
-    if crit.empty:
-        st.success("Nenhum node com porta OFF na leitura atual.")
-    else:
-        crit["_sev"] = crit["Status"].map(status_order)
-        crit = crit.sort_values(["_sev", "Portas_OFF", "Node"], ascending=[False, False, True])
-        st.dataframe(logical.merge(crit[['Node','Status','Portas_OFF','Total_portas','Portas_popup']], on='Node', how='right')[['Node','Bairro','Status','Portas_OFF','Total_portas','Portas_popup']], use_container_width=True, hide_index=True)
-
-with right:
-    st.markdown("### 🟡 Portas críticas 1–20")
-    q = status_df[status_df["Portas_Criticas"] > 0].copy() if not status_df.empty else pd.DataFrame()
-    if q.empty:
-        st.info("Nenhuma porta crítica nesta coleta.")
-    else:
-        q = q.sort_values(["Portas_Criticas", "Node"], ascending=[False, True])
-        st.dataframe(logical.merge(q[['Node','Portas_Criticas','Portas_popup']], on='Node', how='right')[['Node','Bairro','Portas_Criticas','Portas_popup']], use_container_width=True, hide_index=True)
 
 pending = logical[logical["Latitude"].isna()].copy()
 if not pending.empty:
