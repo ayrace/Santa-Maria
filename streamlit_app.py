@@ -439,7 +439,10 @@ with summary_1:
     else:
         crit["_sev"] = crit["Status"].map(status_order)
         crit = crit.sort_values(["_sev", "Portas_OFF", "Node"], ascending=[False, False, True])
-        crit_view = logical.merge(crit[["Node", "Status", "Portas_OFF", "Total_portas", "Portas_popup"]], on="Node", how="right")
+        crit_order = crit[["Node", "_sev", "Portas_OFF"]].copy()
+        crit_view = logical[logical["Node"].isin(crit_order["Node"])].copy()
+        crit_view = crit_view.merge(crit_order, on="Node", how="left", suffixes=("", "_ord"))
+        crit_view = crit_view.sort_values(["_sev", "Portas_OFF_ord", "Node"], ascending=[False, False, True])
         st.dataframe(crit_view[["Node", "Regiao", "Bairro", "Status", "Portas_OFF"]], use_container_width=True, hide_index=True)
 
 with summary_2:
@@ -462,7 +465,10 @@ with st.expander("🟡 Portas críticas 1–20", expanded=False):
         st.info("Nenhuma porta crítica nesta coleta.")
     else:
         q = q.sort_values(["Portas_Criticas", "Node"], ascending=[False, True])
-        q_view = logical.merge(q[["Node", "Portas_Criticas", "Portas_popup"]], on="Node", how="right")
+        q_order = q[["Node", "Portas_Criticas"]].copy().rename(columns={"Portas_Criticas":"_crit_order"})
+        q_view = logical[logical["Node"].isin(q_order["Node"])].copy()
+        q_view = q_view.merge(q_order, on="Node", how="left")
+        q_view = q_view.sort_values(["_crit_order", "Node"], ascending=[False, True])
         st.dataframe(q_view[["Node", "Regiao", "Bairro", "Portas_Criticas", "Portas_popup"]], use_container_width=True, hide_index=True)
 
 
